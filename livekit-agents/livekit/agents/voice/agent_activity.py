@@ -1,4 +1,5 @@
 from __future__ import annotations
+from livekit_agents.interrupt_handler import DeferredInterruptController
 
 import asyncio
 import contextvars
@@ -1244,6 +1245,30 @@ class AgentActivity(RecognitionHooks):
             self._interrupt_by_audio_activity()
 
     def on_interim_transcript(self, ev: stt.SpeechEvent, *, speaking: bool | None) -> None:
+        
+        
+        
+        # === Deferred interrupt (TEXT based) ===
+        # === Deferred interrupt (INTERIM TEXT) ===
+        if self._current_speech and self._current_speech.allow_interruptions:
+            controller = getattr(self._session, "_interrupt_controller", None)
+
+            if controller:
+                decision = controller.should_interrupt(
+                text=ev.alternatives[0].text,
+                timestamp=time.time(),
+                )
+                
+                if decision in ("ignore", "defer"):
+                    return
+
+                if decision == "interrupt":
+                    self.interrupt()
+                    return
+# ========================================
+
+# ======================================
+
         if isinstance(self.llm, llm.RealtimeModel) and self.llm.capabilities.user_transcription:
             # skip stt transcription if user_transcription is enabled on the realtime model
             return
@@ -1272,6 +1297,23 @@ class AgentActivity(RecognitionHooks):
                 self._start_false_interruption_timer(timeout)
 
     def on_final_transcript(self, ev: stt.SpeechEvent, *, speaking: bool | None = None) -> None:
+        # === Deferred interrupt (FINAL TEXT) ===
+        if self._current_speech and self._current_speech.allow_interruptions:
+            controller = getattr(self._session, "_interrupt_controller", None)
+            if controller:
+                decision = controller.should_interrupt(
+                text=ev.alternatives[0].text,
+                timestamp=time.time(),
+                )
+
+                if decision in ("ignore", "defer"):
+                    return
+
+                if decision == "interrupt":
+                    self.interrupt()
+                    return
+# ======================================
+
         if isinstance(self.llm, llm.RealtimeModel) and self.llm.capabilities.user_transcription:
             # skip stt transcription if user_transcription is enabled on the realtime model
             return
