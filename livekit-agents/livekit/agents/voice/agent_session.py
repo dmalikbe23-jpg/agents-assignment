@@ -34,6 +34,7 @@ from ..types import (
     APIConnectOptions,
     NotGivenOr,
 )
+from ..interrupt_handler.deferred_interrupt import DeferredInterruptController
 from ..utils.misc import is_given
 from . import io, room_io
 from ._utils import _set_participant_attributes
@@ -352,6 +353,11 @@ class AgentSession(rtc.EventEmitter[EventTypes], Generic[Userdata_T]):
         self._root_span_context: otel_context.Context | None = None
 
         self._recorded_events: list[AgentEvent] = []
+        self._interrupt_controller = DeferredInterruptController(
+        min_words=self._opts.min_interruption_words,
+        min_duration=self._opts.min_interruption_duration,
+        )
+
         self._enable_recording: bool = False
         self._started_at: float | None = None
 
